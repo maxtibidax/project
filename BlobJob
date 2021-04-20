@@ -1,0 +1,94 @@
+import java.io.*;
+import java.nio.file.Paths;
+import java.sql.*;
+import java.util.Random;
+import java.util.Scanner;
+
+import static java.nio.file.Files.readAllBytes;
+
+public class BlobJob {
+    static Scanner scanner = new Scanner(System.in);
+    Blob blob1;
+    Blob blob2;
+    //SQL запросы для работы с BLOB
+    private String SELECT_BLOB = """
+            SELECT %s FROM %s WHERE id = ? """;
+    private String INSERT_BLOB = """
+            INSERT INTO %s (%s) VALUES (?)""";
+
+    //метод для получения файла из базы данных
+    public void selectBlob(File directoryName, File fileName, Blob blob) {
+        try (FileOutputStream fileOutputStream = new FileOutputStream(doFileUnique(directoryName, fileName))) {
+            fileOutputStream.write(blob.getBytes(1, (int) blob.length()));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException | SQLException e) {
+            e.printStackTrace();
+        } finally {
+            if (blob != null) {
+                try {
+                    blob.free();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public Blob insertBlob(File file) {
+        Connection connection = ConUtil.get();
+        try (FileInputStream fileInputStream = new FileInputStream(file)) {
+            connection.setAutoCommit(false);
+            byte[] buffer = new byte[fileInputStream.available()];
+            fileInputStream.read(buffer);
+            blob2 = connection.createBlob();
+            blob2.setBytes(1, buffer);
+            connection.commit();
+        } catch (SQLException | IOException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.setAutoCommit(true);
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+
+        }
+        return blob2;
+    }
+
+    public File doFileUnique(File directoryName, File file) throws IOException {
+        String fileName = file.getName();
+        String splitFileName[] = fileName.split("\\.");
+        StringBuilder stringBuilder1 = new StringBuilder("");
+        StringBuilder stringBuilder2 = new StringBuilder("");
+        int i = 0;
+        int j = 0;
+        while (!file.createNewFile()) {
+            stringBuilder1 = new StringBuilder("");
+            stringBuilder2 = new StringBuilder(directoryName.getAbsolutePath() + "\\");
+            if (i > 20) {
+                return null;
+            } else {
+                stringBuilder1.append("(" + i + ")");
+                while (j != splitFileName.length - 2) {
+                    stringBuilder2.append(splitFileName[j] + ".");
+                    j++;
+                }
+                stringBuilder2.append(splitFileName[splitFileName.length - 2] + stringBuilder1.toString() + "." + splitFileName[splitFileName.length - 1]);
+                file.renameTo(new File(stringBuilder2.toString()));
+                i++;
+            }
+
+        }
+        return file;
+    }
+}
