@@ -1,0 +1,180 @@
+import java.io.File;
+import java.sql.*;
+import java.util.Scanner;
+
+public class musicJob {
+    Blob blob1;
+    Blob blob2;
+    Scanner scanner = new Scanner(System.in);
+    private static String INSERT_TRACK = """
+            INSERT INTO tracks (albom_id,track_file,track_file_name,track_name) VALUES (?,?,?,?)""";
+    private static String ALBOM_NAME2ID = """
+            SELECT id FROM alboms WHERE name = (?)""";
+    private static String SELECT_TRACK = """
+            SELECT bands.name AS bName,alboms.name AS aName,tracks.track_name AS tName FROM tracks JOIN alboms ON alboms.id = tracks.albom_id JOIN bands ON bands.id = alboms.bands_id where alboms.name =? AND bands.name = ?""";
+    private static String DOWNLOAD_TRACK = """
+            SELECT tracks.id,track_file,track_file_name FROM tracks JOIN alboms ON alboms.id = tracks.albom_id JOIN bands ON bands.id = alboms.bands_id where alboms.name =? AND bands.name = ? AND tracks.track_name = ?""";
+    private static String DOWNLOAD_ALBOM = """
+            SELECT tracks.id,track_file,track_file_name,alboms.name FROM tracks JOIN alboms ON alboms.id = tracks.albom_id JOIN bands ON bands.id = alboms.bands_id where alboms.name =? AND bands.name = ?""";
+
+    public void insertTrack() {
+
+        System.out.println("Введите название альбома");
+        String albom_name = scanner.nextLine();
+        System.out.println("Введите адрес файла");
+        String file = scanner.nextLine();
+        Connection connection = ConUtil.get();
+        try (PreparedStatement preparedStatement1 = connection.prepareStatement(INSERT_TRACK);
+             PreparedStatement preparedStatement2 = connection.prepareStatement(ALBOM_NAME2ID)) {
+            connection.setAutoCommit(false);
+            File fileObject = new File(file);
+            preparedStatement2.setString(1, albom_name);
+            ResultSet resultSet = preparedStatement2.executeQuery();
+            if (resultSet.next()) {
+                preparedStatement1.setInt(1, resultSet.getInt(1));
+                blob1 = new BlobJob().insertBlob(fileObject);
+                preparedStatement1.setBlob(2, blob1);
+                preparedStatement1.setString(3, fileObject.getName());
+                System.out.println("Введите название трека");
+                preparedStatement1.setString(4, scanner.nextLine());
+                preparedStatement1.executeUpdate();
+                connection.commit();
+            } else {
+                System.err.println("Не удалось получить альбом из базы данных");
+                throw new SQLException();
+            }
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (blob1 != null) {
+                try {
+                    blob1.free();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public void downloadAlbom(String directory_path) {
+        Connection connection = ConUtil.get();
+        try (PreparedStatement preparedStatement = connection.prepareStatement(DOWNLOAD_ALBOM)) {
+            connection.setAutoCommit(false);
+            String albomName;
+            System.out.println("Введите название группы");
+            preparedStatement.setString(2, scanner.nextLine());
+            System.out.println("Введите альбом");
+            albomName = scanner.nextLine();
+            preparedStatement.setString(1, albomName);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            File directoryNew = new File(directory_path + "\\" + albomName);
+            if (directoryNew.mkdir()) {
+                while (resultSet.next()) {
+                    new BlobJob().selectBlob(directoryNew, new File(resultSet.getString("track_file_name")), resultSet.getBlob("track_file"));
+                }
+            } else {
+                System.err.println("Не удалось создать файл");
+            }
+            System.out.println("Альбом успешно закачен");
+            connection.commit();
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+    }
+
+    public void downloadTrack(String directory_path) {
+        Connection connection = ConUtil.get();
+        try (PreparedStatement preparedStatement = connection.prepareStatement(DOWNLOAD_TRACK)) {
+            connection.setAutoCommit(false);
+            System.out.println("Введите название группы");
+            preparedStatement.setString(2, scanner.nextLine());
+            System.out.println("Введите альбом");
+            preparedStatement.setString(1, scanner.nextLine());
+            System.out.println("Введите название трека");
+            preparedStatement.setString(3, scanner.nextLine());
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                new BlobJob().selectBlob(new File(directory_path), new File(resultSet.getString("track_file_name")), resultSet.getBlob("track_file"));
+                System.out.println("Файл скачан");
+            } else {
+                System.err.println("Не удалось скачать файл");
+                throw new SQLException();
+            }
+            connection.commit();
+            connection.setAutoCommit(true);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            try {
+                connection.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        } finally {
+
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+    }
+
+    public void selectTrack() {
+        Connection connection = ConUtil.get();
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SELECT_TRACK)) {
+            System.out.println("Введите название группы");
+            preparedStatement.setString(2, scanner.nextLine());
+            System.out.println("Введите альбом");
+            preparedStatement.setString(1, scanner.nextLine());
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                System.out.println(resultSet.getString("bName") + "   " +
+                        resultSet.getString("aName") + "  " +
+                        resultSet.getString("tName"));
+
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+}
