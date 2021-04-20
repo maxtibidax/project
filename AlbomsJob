@@ -1,0 +1,112 @@
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Scanner;
+
+public class AlbomsJob {
+    private String INSERT_ALBOM = """
+            INSERT INTO alboms (name,bands_id) values(?,?)""";
+    private String BANDS_NAME2ID = """
+            SELECT id FROM bands WHERE name = ?""";
+    private String SELECT_ALBOM = """
+            SELECT bands.name,alboms.name FROM alboms JOIN bands ON bands.id = alboms.bands_id""";
+    private String UPDATE_ALBOM = """
+            UPDATE alboms
+            SET name = ?
+            WHERE bands_id = ? and name = ?""";
+    private String ALBOM_NAME2ID = """
+            SELECT id FROM alboms WHERE name = ?""";
+    Scanner scanner = new Scanner(System.in);
+
+    public void insertAlbom() {
+        System.out.println("Введите название альбома");
+        String albomName = scanner.nextLine();
+        System.out.println("Введите название группы");
+        String bandsName = scanner.nextLine();
+        Connection connection = ConUtil.get();
+        try (PreparedStatement preparedStatement1 = connection.prepareStatement(INSERT_ALBOM);
+             PreparedStatement preparedStatement2 = connection.prepareStatement(BANDS_NAME2ID)) {
+            connection.setAutoCommit(false);
+            preparedStatement2.setString(1, bandsName);
+            ResultSet resultSet2 = preparedStatement2.executeQuery();
+            if (resultSet2.next()) {
+                preparedStatement1.setInt(2, resultSet2.getInt("id"));
+            } else {
+                System.err.println("Не удалось считать данные из базы данных");
+            }
+            preparedStatement1.setString(1, albomName);
+            preparedStatement1.executeUpdate();
+            connection.commit();
+            System.out.println("Альбом успешно добавлен");
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public void selectAlboms() {
+        try (Connection connection = ConUtil.get();
+             PreparedStatement preparedStatement = connection.prepareStatement(SELECT_ALBOM)) {
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                System.out.println(resultSet.getString(1) + "   " + resultSet.getString(2));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void updateAlbom() {
+        System.out.println("Введите название группы");
+        String bandsName = scanner.nextLine();
+        System.out.println("Введите новое название альбома");
+        String newAlbomName = scanner.nextLine();
+        System.out.println("Введите старое название альбома");
+        String oldAlbomName = scanner.nextLine();
+        Connection connection = ConUtil.get();
+        try (PreparedStatement preparedStatement1 = connection.prepareStatement(UPDATE_ALBOM);
+             PreparedStatement preparedStatement2 = connection.prepareStatement(BANDS_NAME2ID)) {
+            connection.setAutoCommit(false);
+            preparedStatement2.setString(1, bandsName);
+            ResultSet resultSet2 = preparedStatement2.executeQuery();
+            if (resultSet2.next()) {
+                preparedStatement1.setInt(2, resultSet2.getInt(1));
+            } else {
+                System.err.println("Не удалось получить данные из базы данных");
+            }
+            preparedStatement1.setString(1, newAlbomName);
+            preparedStatement1.setString(3, oldAlbomName);
+            preparedStatement1.executeUpdate();
+            connection.commit();
+            System.out.println("Альбом успешно обновлён");
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+}
