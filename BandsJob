@@ -1,0 +1,86 @@
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Scanner;
+
+public class BandsJob {
+
+    private static final String SELECT_BANDS = """
+            SELECT name, genre FROM bands""";
+    private static String SELECT_BANDS_BY_GENRE = """
+            SELECT name,genre FROM bands WHERE genre = ? """;
+    private static final String INSERT_BANDS = """
+            INSERT INTO bands (name,genre) VALUES(?,?)""";
+    private static final String UPDATE_BANDS = """
+            UPDATE bands SET name=?,genre=? WHERE name = ?""";
+
+    static Scanner scanner = new Scanner(System.in);
+
+
+    public static void getBands() {
+        try (Connection connection = ConUtil.get();
+             PreparedStatement ps = connection.prepareStatement(SELECT_BANDS);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                System.out.println(rs.getString("name   ") + rs.getString("genre"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void getBandsByGenre() {
+        System.out.println("введите жанр группы");
+        String genre = scanner.nextLine();
+        try (Connection connection = ConUtil.get();
+             PreparedStatement ps = connection.prepareStatement(SELECT_BANDS_BY_GENRE)) {
+            ps.setString(1, genre);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                System.out.println(rs.getString("name   ") + genre);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public static void setBand() {
+        System.out.println("введите название нового исполнителя");
+        String name = scanner.nextLine();
+        System.out.println("введите жанр нового исполнителя");
+        String description = scanner.nextLine();
+        try (Connection connection = ConUtil.get();
+             PreparedStatement ps = connection.prepareStatement(INSERT_BANDS);
+        ) {
+            ps.setString(1, name);
+            ps.setString(2, description);
+            ps.executeUpdate();
+            System.out.println("Группа успешно добавлена");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void updateBand() {
+        System.out.println("введите старое название исполнителя");
+        String oldName = scanner.nextLine();
+        System.out.println("введите новое название исполнителя");
+        String name = scanner.nextLine();
+        System.out.println("введите новый жанр  исполнителя");
+        String description = scanner.nextLine();
+        try (Connection connection = ConUtil.get();
+             PreparedStatement ps = connection.prepareStatement(UPDATE_BANDS);
+        ) {
+            ps.setString(1, name);
+            ps.setString(2, description);
+            ps.setString(3, oldName);
+            ps.executeUpdate();
+            System.out.println("Исполнитель обновлен");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
