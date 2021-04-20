@@ -1,0 +1,83 @@
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.sql.*;
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Введите команду help для вывода всех команд");
+        User user = new User();
+
+        //Поля для работы цикла
+        Boolean active = true;
+        String commandString;
+        Scanner scan = new Scanner(System.in);
+        //цикл для считывания команд из командной строки
+        while (active) {
+            commandString = scan.nextLine();
+            if (commandString.equalsIgnoreCase("help")) {
+                help();
+            } else if (commandString.equalsIgnoreCase("stop")) {
+                active = false;
+            } else if (commandString.equalsIgnoreCase("getBands")) {
+                new BandsJob().getBands();
+            } else if (commandString.equalsIgnoreCase("getBandsByGenre")) {
+                new BandsJob().getBandsByGenre();
+            } else if (commandString.equalsIgnoreCase("setBand")) {
+                new BandsJob().setBand();
+            } else if (commandString.equalsIgnoreCase("updateBand")) {
+                new BandsJob().updateBand();
+            } else if (commandString.equalsIgnoreCase("insertAlbom")) {
+                new AlbomsJob().insertAlbom();
+            } else if (commandString.equalsIgnoreCase("selectAlboms")) {
+                new AlbomsJob().selectAlboms();
+            } else if (commandString.equalsIgnoreCase("updateAlbom")) {
+                new AlbomsJob().updateAlbom();
+            } else if (commandString.equalsIgnoreCase("insertTrack")) {
+                new musicJob().insertTrack();
+            } else if (commandString.equalsIgnoreCase("downloadAlbom")) {
+                new musicJob().downloadAlbom(user.getDirectory_path());
+            } else if (commandString.equalsIgnoreCase("downloadTrack")) {
+                new musicJob().downloadTrack(user.getDirectory_path());
+            } else if (commandString.equalsIgnoreCase("selectTrack")) {
+                new musicJob().selectTrack();
+            } else {
+                System.out.println("Комманда не распознана");
+            }
+        }
+    }
+
+    //функция для вывода описания к командам
+    static void help() {
+        System.out.println("""
+
+                Команда help вывводит список всех команд
+                ----------------------------------------------
+                Команда stop завершает выполнение программы
+                ----------------------------------------------
+                Команда getBands выводит списко исполнителей
+                ----------------------------------------------
+                Команда getBandsByGenre выводит список исполнителей выбранного жанра
+                ----------------------------------------------
+                Команда setBand добавляет исполнителя в таблицу исполнителей
+                ----------------------------------------------
+                Команда updateBand обновляет данные исполнителя
+                ----------------------------------------------
+                Команда insertAlbom добавляет новый альбом в таблицу с альбомами
+                ----------------------------------------------
+                Команда selectAlboms выводит все альбомы исполнителя в консоль
+                ----------------------------------------------
+                Команда updateAlbom обновляет данные альбома
+                ----------------------------------------------
+                Команда insertTrack добавляет трек в таблицу с музыкой
+                ----------------------------------------------
+                Команда downloadAlbom скачивает альбом из базы данных
+                ----------------------------------------------
+                Команда downloadTrack скачивает трек из базы данных
+                ----------------------------------------------
+                Команда selectTrack выводит все назания пемсен в консоль""");
+    }
+}
+
