@@ -1,0 +1,76 @@
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+
+public final class ConUtil {
+    //ключи из properties-файла
+    public static final String URL_KEY = "db.url";
+    public static final String NAME_KEY = "db.username";
+    public static final String PASS_KEY = "db.password";
+    //размера пула подключений
+    private static final Integer DEFAULT_POOL_SIZE = 3;
+    //список, в котором хранятся экземпляры прокси-класса Connection
+    private static BlockingQueue<Connection> pool;
+    //список, в котором хранятся экземпляры класса Connection
+    private static List<Connection> sourceConnections;
+
+    static {
+        initConnectionPool();
+    }
+
+    private ConUtil() {
+    }
+//метод, который проксирует класс Connection, добавляя экземпляр класса Connection в список
+    private static void initConnectionPool() {
+        var size = DEFAULT_POOL_SIZE;
+        pool = new ArrayBlockingQueue<>(size);
+        sourceConnections = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            var connection = open();
+            var proxyConnection = (Connection)
+                    Proxy.newProxyInstance(ConUtil.class.getClassLoader(), new Class[]{Connection.class},
+                            (proxy, method, args) -> method.getName().equals("close")
+                                    ? pool.add((Connection) proxy)
+                                    : method.invoke(connection, args));
+            pool.add(proxyConnection);
+            sourceConnections.add(connection);
+        }
+    }
+//метод, который возращает экземляр класса Connection из списка
+    public static Connection get() {
+        try {
+            return pool.take();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+//метод, который устонавливает соединение с базой данных
+    public static Connection open() {
+        try {
+            return DriverManager.getConnection(
+                    PropUtil.getByKey(URL_KEY),
+                    PropUtil.getByKey(NAME_KEY),
+                    PropUtil.getByKey(PASS_KEY));
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+//метод, который вызыват оригинальный метод close() экземпляра класса Connection
+    public static void closePool() {
+        try {
+            for (Connection sourceConnection : sourceConnections) {
+                sourceConnection.close();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
